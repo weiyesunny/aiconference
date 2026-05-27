@@ -3,10 +3,13 @@ import logging
 import httpx
 
 from app.config import FEISHU_WEBHOOK_URL
+from app.constants import BRAND_EN, BRAND_SUB
 
 logger = logging.getLogger(__name__)
 
 CARD_HEADER_COLOR = "blue"
+FEISHU_KEYWORD_BLOCKED = 19024
+_FOOTER_TEXT = f"{BRAND_EN} · {BRAND_SUB}"
 
 
 def push_to_feishu(title: str, analysis: str) -> bool:
@@ -24,7 +27,7 @@ def push_to_feishu(title: str, analysis: str) -> bool:
             return True
 
         # Card message may fail keyword check; fall back to post format
-        if data.get("code") == 19024:
+        if data.get("code") == FEISHU_KEYWORD_BLOCKED:
             logger.warning("Card blocked by keyword filter, falling back to post format")
             post = _build_post(title, analysis)
             resp2 = httpx.post(FEISHU_WEBHOOK_URL, json=post, timeout=15)
@@ -76,7 +79,7 @@ def _build_card(title: str, markdown_text: str) -> dict:
     elements.append({"tag": "hr"})
     elements.append({
         "tag": "note",
-        "elements": [{"tag": "plain_text", "content": "American First Investment · AI会议助手"}],
+        "elements": [{"tag": "plain_text", "content": _FOOTER_TEXT}],
     })
 
     return {
@@ -110,7 +113,7 @@ def _build_post(title: str, markdown_text: str) -> dict:
         else:
             content_lines.append([{"tag": "text", "text": stripped}])
 
-    content_lines.append([{"tag": "text", "text": "\n———\nAmerican First Investment · AI会议助手"}])
+    content_lines.append([{"tag": "text", "text": f"\n———\n{_FOOTER_TEXT}"}])
 
     return {
         "msg_type": "post",

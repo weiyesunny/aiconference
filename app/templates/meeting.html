@@ -31,7 +31,9 @@
 {% endif %}
 
 {% if meeting.status == 'failed' %}
-<div class="alert error">处理失败，请检查音频文件或查看服务器日志。</div>
+<div class="alert error">
+    处理失败{% if meeting.error_message %}：{{ meeting.error_message }}{% else %}，请检查音频文件或查看服务器日志{% endif %}。
+</div>
 {% endif %}
 
 {% if meeting.analysis %}
@@ -88,7 +90,7 @@
 <script>
 (function poll() {
     setTimeout(function() {
-        fetch('/api/meeting/{{ meeting.id }}/status')
+        fetch('/api/meeting/{{ meeting.id }}/status', {credentials: 'same-origin'})
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'completed' || data.status === 'failed') {

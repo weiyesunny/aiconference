@@ -25,11 +25,17 @@ def init_db():
             transcript TEXT,
             segments TEXT,
             analysis TEXT,
+            error_message TEXT,
             status TEXT NOT NULL DEFAULT 'uploaded',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
     """)
+    # Add error_message column if upgrading from older schema
+    try:
+        conn.execute("SELECT error_message FROM meetings LIMIT 1")
+    except Exception:
+        conn.execute("ALTER TABLE meetings ADD COLUMN error_message TEXT")
     conn.close()
 
 

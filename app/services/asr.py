@@ -1,4 +1,3 @@
-import os
 import logging
 import subprocess
 from pathlib import Path
@@ -7,6 +6,7 @@ import dashscope
 from dashscope.audio.asr import Recognition
 
 from app.config import DASHSCOPE_API_KEY, ASR_MODEL
+from app.constants import ASR_SAMPLE_RATE, ASR_CHANNELS
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,8 @@ def _convert_to_wav(audio_path: Path) -> Path:
     """Convert audio to 16kHz mono WAV for best compatibility."""
     wav_path = audio_path.with_suffix(".tmp.wav")
     subprocess.run(
-        ["ffmpeg", "-y", "-i", str(audio_path), "-ar", "16000", "-ac", "1",
+        ["ffmpeg", "-y", "-i", str(audio_path),
+         "-ar", str(ASR_SAMPLE_RATE), "-ac", str(ASR_CHANNELS),
          "-loglevel", "error", str(wav_path)],
         check=True,
     )
@@ -91,7 +92,7 @@ def _do_transcribe(wav_path: Path, duration: float) -> dict:
     rec = Recognition(
         model=ASR_MODEL,
         format="wav",
-        sample_rate=16000,
+        sample_rate=ASR_SAMPLE_RATE,
         callback=_NoopCallback(),
     )
     result = rec.call(file=str(wav_path))
