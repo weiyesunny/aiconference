@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ meeting.title }} - AI 会议助手{% endblock %}
+{% block content %}
+<div class="meeting-header">
+    <h2>{{ meeting.title }}</h2>
+    <div class="meeting-meta">
+        <span class="status status-{{ meeting.status }}">
+            {% if meeting.status == 'uploaded' %}已上传
+            {% elif meeting.status == 'transcribing' %}转录中
+            {% elif meeting.status == 'analyzing' %}分析中
+            {% elif meeting.status == 'completed' %}已完成
+            {% elif meeting.status == 'failed' %}失败
+            {% else %}{{ meeting.status }}{% endif %}
+        </span>
+        {% if meeting.duration %}<span>时长: {{ "%.0f"|format(meeting.duration // 60) }}分{{ "%.0f"|format(meeting.duration % 60) }}秒</span>{% endif %}
+        {% if meeting.language %}<span>语言: {{ meeting.language }}</span>{% endif %}
+        <span>{{ meeting.created_at[:16] }}</span>
+    </div>
+</div>
+
+{% if meeting.status in ['uploaded', 'transcribing', 'analyzing'] %}
+<div class="processing-box" id="processing">
+    <div class="spinner"></div>
+    <p>
+        {% if meeting.status == 'uploaded' %}准备处理中...
+        {% elif meeting.status == 'transcribing' %}正在云端转录音频（Paraformer-v2），通常 1-2 分钟完成...
+        {% elif meeting.status == 'analyzing' %}转录完成，正在 AI 分析...
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+
+{% if meeting.status == 'failed' %}
+<div class="alert error">处理失败，请检查音频文件或查看服务器日志。</div>
+{% endif %}
+
+{% if meeting.analysis %}
+<section class="result-section">
+    <h3>会议纪要</h3>
+    <div class="analysis-content" id="analysis">{{ meeting.analysis }}</div>
+</section>
+{% endif %}
+
+{% if meeting.transcript %}
+<section class="result-section">
+    <h3>完整转录</h3>
+    <details>
+        <summary>展开查看转录文本</summary>
+        <div class="transcript-content">
+            {% if meeting.segments %}
+                {% for seg in meeting.segments %}
+                <div class="segment">
+                    <span class="timestamp">[{{ "%02d:%02d"|format((seg.start // 60)|int, (seg.start % 60)|int) }}]</span>
+                    {% if seg.speaker is defined and seg.speaker %}<span class="speaker">{{ seg.speaker }}</span>{% endif %}
+                    <span>{{ seg.text }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <pre>{{ meeting.transcript }}</pre>
+            {% endif %}
+        </div>
+    </details>
+</section>
+
+<section class="result-section">
+    <h3>重新分析</h3>
+    <form action="/meeting/{{ meeting.id }}/reanalyze" method="post">
+        <div class="form-group">
+            <label for="custom_prompt">自定义分析提示词（可选，留空使用默认模板）</label>
+            <textarea id="custom_prompt" name="custom_prompt" rows="4" placeholder="例如：请重点分析会议中关于技术架构的讨论，列出各方案的优缺点对比..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-secondary">重新分析</button>
+    </form>
+</section>
+{% endif %}
+
+<div class="actions">
+    <a href="/" class="btn">返回列表</a>
+    <form action="/meeting/{{ meeting.id }}/delete" method="post" style="display:inline" onsubmit="return confirm('确定要删除这条记录吗？')">
+        <button type="submit" class="btn btn-danger">删除</button>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% if meeting.status in ['uploaded', 'transcribing', 'analyzing'] %}
+<script>
+(function poll() {
+    setTimeout(function() {
+        fetch('/api/meeting/{{ meeting.id }}/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'completed' || data.status === 'failed') {
+                    location.reload();
+                } else {
+                    poll();
+                }
+            })
+            .catch(() => setTimeout(poll, 5000));
+    }, 3000);
+})();
+</script>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function() {
+    const el = document.getElementById('analysis');
+    if (!el || typeof marked === 'undefined') return;
+    el.innerHTML = marked.parse(el.textContent);
+})();
+</script>
+{% endblock %}

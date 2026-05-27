@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}AI 会议助手 - 首页{% endblock %}
+{% block content %}
+<section class="upload-section">
+    <h2>上传会议录音</h2>
+    {% if error %}
+    <div class="alert error">{{ error }}</div>
+    {% endif %}
+    <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+        <div class="form-group">
+            <label for="title">会议标题（可选）</label>
+            <input type="text" id="title" name="title" placeholder="留空则使用文件名">
+        </div>
+        <div class="form-group">
+            <label for="file">音频文件</label>
+            <input type="file" id="file" name="file" accept=".mp3,.m4a,.wav,.flac,.ogg,.mp4,.webm,.aac">
+            <small>支持 MP3, M4A, WAV, FLAC, OGG, MP4, WebM, AAC</small>
+        </div>
+        <div class="form-group">
+            <label>或 直接录音</label>
+            <div class="recorder-box" id="recorderBox">
+                <button type="button" class="btn btn-record" id="btnRecord">
+                    <span class="rec-icon" id="recIcon"></span>
+                    <span id="recLabel">开始录音</span>
+                </button>
+                <span class="rec-timer" id="recTimer"></span>
+                <span class="rec-status" id="recStatus"></span>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btnSubmit">上传并分析</button>
+    </form>
+</section>
+
+{% if meetings %}
+<section class="meetings-section">
+    <h2>会议记录</h2>
+    <div class="meetings-list">
+        {% for m in meetings %}
+        <a href="/meeting/{{ m.id }}" class="meeting-card">
+            <div class="meeting-title">{{ m.title }}</div>
+            <div class="meeting-meta">
+                <span class="status status-{{ m.status }}">
+                    {% if m.status == 'uploaded' %}已上传
+                    {% elif m.status == 'transcribing' %}转录中
+                    {% elif m.status == 'analyzing' %}分析中
+                    {% elif m.status == 'completed' %}已完成
+                    {% elif m.status == 'failed' %}失败
+                    {% else %}{{ m.status }}{% endif %}
+                </span>
+                {% if m.duration %}<span>{{ "%.0f"|format(m.duration // 60) }}分{{ "%.0f"|format(m.duration % 60) }}秒</span>{% endif %}
+                {% if m.language %}<span>{{ m.language }}</span>{% endif %}
+                <span>{{ m.created_at[:16] }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const btnRecord = document.getElementById('btnRecord');
+    const recIcon = document.getElementById('recIcon');
+    const recLabel = document.getElementById('recLabel');
+    const recTimer = document.getElementById('recTimer');
+    const recStatus = document.getElementById('recStatus');
+    const fileInput = document.getElementById('file');
+    const form = document.getElementById('uploadForm');
+    const titleInput = document.getElementById('title');
+
+    let mediaRecorder = null;
+    let chunks = [];
+    let startTime = 0;
+    let timerInterval = null;
+    let recordedBlob = null;
+
+    function formatTime(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function setRecording(active) {
+        if (active) {
+            btnRecord.classList.add('recording');
+            recIcon.classList.add('recording');
+            recLabel.textContent = '停止录音';
+        } else {
+            btnRecord.classList.remove('recording');
+            recIcon.classList.remove('recording');
+            recLabel.textContent = '开始录音';
+        }
+    }
+
+    btnRecord.addEventListener('click', async function() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            chunks = [];
+            recordedBlob = null;
+            recStatus.textContent = '';
+            fileInput.value = '';
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : 'audio/webm';
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = function() {
+                clearInterval(timerInterval);
+                stream.getTracks().forEach(t => t.stop());
+                setRecording(false);
+
+                recordedBlob = new Blob(chunks, { type: mimeType });
+                const sizeMB = (recordedBlob.size / 1024 / 1024).toFixed(1);
+                const duration = formatTime(Date.now() - startTime);
+                recStatus.textContent = '录音完成 (' + duration + ', ' + sizeMB + ' MB)';
+                recTimer.textContent = '';
+            };
+
+            mediaRecorder.start(1000);
+            startTime = Date.now();
+            setRecording(true);
+
+            timerInterval = setInterval(function() {
+                recTimer.textContent = formatTime(Date.now() - startTime);
+            }, 500);
+
+        } catch (err) {
+            recStatus.textContent = '无法访问麦克风: ' + err.message;
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        const hasFile = fileInput.files && fileInput.files.length > 0;
+        if (!hasFile && !recordedBlob) {
+            e.preventDefault();
+            recStatus.textContent = '请选择文件或先录音';
+            recStatus.style.color = '#dc2626';
+            return;
+        }
+        if (recordedBlob && !hasFile) {
+            e.preventDefault();
+            const fd = new FormData();
+            const now = new Date();
+            const ts = now.getFullYear()
+                + String(now.getMonth() + 1).padStart(2, '0')
+                + String(now.getDate()).padStart(2, '0')
+                + '_'
+                + String(now.getHours()).padStart(2, '0')
+                + String(now.getMinutes()).padStart(2, '0');
+            const filename = 'recording_' + ts + '.webm';
+            fd.append('file', recordedBlob, filename);
+            fd.append('title', titleInput.value || '录音 ' + ts);
+
+            const btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.textContent = '上传中...';
+
+            fetch('/upload', { method: 'POST', body: fd, redirect: 'follow' })
+                .then(function(resp) {
+                    if (resp.redirected) {
+                        window.location.href = resp.url;
+                    } else {
+                        window.location.href = '/';
+                    }
+                })
+                .catch(function(err) {
+                    btn.disabled = false;
+                    btn.textContent = '上传并分析';
+                    recStatus.textContent = '上传失败: ' + err.message;
+                });
+        }
+    });
+})();
+</script>
+{% endblock %}
