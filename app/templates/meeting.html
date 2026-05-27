@@ -3,7 +3,7 @@
 {% block nav_sub %}<span class="nav-sub"><a href="/" class="nav-back">&larr; 首页</a> / <a href="/minutes/" class="nav-back">会议纪要</a> / {{ meeting.title[:20] }}</span>{% endblock %}
 {% block content %}
 <div class="meeting-header">
-    <h2>{{ meeting.title }}</h2>
+    <h2 id="meetingTitle">{% if meeting.title.startswith('_auto_') %}生成标题中...{% else %}{{ meeting.title }}{% endif %}</h2>
     <div class="meeting-meta">
         <span class="status status-{{ meeting.status }}">
             {% if meeting.status == 'uploaded' %}已上传
@@ -17,6 +17,19 @@
         {% if meeting.language %}<span>语言: {{ meeting.language }}</span>{% endif %}
         <span>{{ meeting.created_at[:16] }}</span>
     </div>
+    {% if meeting.meeting_time or meeting.location or meeting.participants %}
+    <div class="meeting-info-bar">
+        {% if meeting.meeting_time %}
+        <span class="meeting-info-item"><span class="info-icon">🕐</span> {{ meeting.meeting_time }}</span>
+        {% endif %}
+        {% if meeting.location %}
+        <span class="meeting-info-item"><span class="info-icon">📍</span> {{ meeting.location }}</span>
+        {% endif %}
+        {% if meeting.participants %}
+        <span class="meeting-info-item"><span class="info-icon">👥</span> {{ meeting.participants }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 {% if meeting.status in ['uploaded', 'transcribing', 'analyzing'] %}
@@ -94,6 +107,10 @@
         fetch('/minutes/api/{{ meeting.id }}/status', {credentials: 'same-origin'})
             .then(r => r.json())
             .then(data => {
+                if (data.title && !data.title.startsWith('_auto_')) {
+                    var el = document.getElementById('meetingTitle');
+                    if (el && el.textContent !== data.title) el.textContent = data.title;
+                }
                 if (data.status === 'completed' || data.status === 'failed') {
                     location.reload();
                 } else {

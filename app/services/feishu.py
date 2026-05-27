@@ -12,12 +12,13 @@ FEISHU_KEYWORD_BLOCKED = 19024
 _FOOTER_TEXT = f"{BRAND_EN} · {BRAND_SUB}"
 
 
-def push_to_feishu(title: str, analysis: str) -> bool:
-    """Push meeting minutes to Feishu group chat as a card message."""
+def push_to_feishu(meeting: dict, analysis: str) -> bool:
+    """Push meeting minutes to Feishu group chat."""
     if not FEISHU_WEBHOOK_URL:
         return False
 
-    card = _build_card(title, analysis)
+    title = meeting.get("title", "未命名会议")
+    card = _build_card(title, analysis, meeting)
 
     try:
         resp = httpx.post(FEISHU_WEBHOOK_URL, json=card, timeout=15)
@@ -26,10 +27,9 @@ def push_to_feishu(title: str, analysis: str) -> bool:
             logger.info("Pushed meeting minutes to Feishu: %s", title)
             return True
 
-        # Card message may fail keyword check; fall back to post format
         if data.get("code") == FEISHU_KEYWORD_BLOCKED:
             logger.warning("Card blocked by keyword filter, falling back to post format")
-            post = _build_post(title, analysis)
+            post = _build_post(title, analysis, meeting)
             resp2 = httpx.post(FEISHU_WEBHOOK_URL, json=post, timeout=15)
             data2 = resp2.json()
             if data2.get("code") == 0:
@@ -44,9 +44,27 @@ def push_to_feishu(title: str, analysis: str) -> bool:
         return False
 
 
-def _build_card(title: str, markdown_text: str) -> dict:
+def _build_meeting_info_md(meeting: dict) -> str:
+    """Build markdown lines for meeting metadata (time, location, participants)."""
+    parts = []
+    if meeting.get("meeting_time"):
+        parts.append(f"**🕐 时间：**{meeting['meeting_time']}")
+    if meeting.get("location"):
+        parts.append(f"**📍 地点：**{meeting['location']}")
+    if meeting.get("participants"):
+        parts.append(f"**👥 参与人：**{meeting['participants']}")
+    return "\n".join(parts) if parts else ""
+
+
+def _build_card(title: str, markdown_text: str, meeting: dict) -> dict:
     """Build a Feishu interactive card from analysis markdown."""
     elements = []
+
+    info_md = _build_meeting_info_md(meeting)
+    if info_md:
+        elements.append({"tag": "markdown", "content": info_md})
+        elements.append({"tag": "hr"})
+
     current_section = []
 
     for line in markdown_text.strip().split("\n"):
@@ -94,11 +112,23 @@ def _build_card(title: str, markdown_text: str) -> dict:
     }
 
 
-def _build_post(title: str, markdown_text: str) -> dict:
+def _build_post(title: str, markdown_text: str, meeting: dict) -> dict:
     """Build a Feishu post (rich text) message with keyword included."""
-    lines = markdown_text.strip().split("\n")
     content_lines = []
 
+    info_parts = []
+    if meeting.get("meeting_time"):
+        info_parts.append(f"🕐 时间：{meeting['meeting_time']}")
+    if meeting.get("location"):
+        info_parts.append(f"📍 地点：{meeting['location']}")
+    if meeting.get("participants"):
+        info_parts.append(f"👥 参与人：{meeting['participants']}")
+    if info_parts:
+        for part in info_parts:
+            content_lines.append([{"tag": "text", "text": part}])
+        content_lines.append([{"tag": "text", "text": "———"}])
+
+    lines = markdown_text.strip().split("\n")
     for line in lines:
         stripped = line.strip()
         if not stripped:

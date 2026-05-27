@@ -26,7 +26,12 @@ PROMPTS = {
 ## 未解决问题
 （列出会议中提出但未解决的问题或争议点，如果没有则写"无"）
 """,
-        "user": "以下是会议转录文本，请生成会议纪要：\n\n{transcript}",
+        "user": "{metadata}以下是会议转录文本，请生成会议纪要：\n\n{transcript}",
+    },
+
+    "generate_title": {
+        "system": "你是一个标题生成助手。请根据会议转录内容，生成一个简洁准确的会议标题（10-20字）。只输出标题本身，不要加引号或其他格式。",
+        "user": "请为以下会议内容生成标题：\n\n{transcript}",
     },
 }
 
@@ -41,3 +46,17 @@ def get_system_prompt(key: str | None = None) -> str:
 def get_user_prompt(key: str | None = None) -> str:
     entry = PROMPTS.get(key or DEFAULT_PROMPT_KEY, PROMPTS[DEFAULT_PROMPT_KEY])
     return entry["user"]
+
+
+def build_metadata_context(meeting: dict) -> str:
+    """Build metadata prefix for LLM context from meeting info."""
+    parts = []
+    if meeting.get("meeting_time"):
+        parts.append(f"会议时间：{meeting['meeting_time']}")
+    if meeting.get("location"):
+        parts.append(f"会议地点：{meeting['location']}")
+    if meeting.get("participants"):
+        parts.append(f"参与人：{meeting['participants']}")
+    if not parts:
+        return ""
+    return "会议基本信息：\n" + "\n".join(parts) + "\n\n"

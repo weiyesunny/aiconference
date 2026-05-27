@@ -12,7 +12,7 @@ from app.config import UPLOAD_DIR, FEISHU_WEBHOOK_URL
 from app.constants import MeetingStatus, ALLOWED_AUDIO_EXTENSIONS
 from app.database import create_meeting, update_meeting, get_meeting, list_meetings, delete_meeting
 from app.services.asr import transcribe
-from app.services.analyzer import analyze_meeting
+from app.services.analyzer import analyze_meeting, generate_title
 from app.routes.auth import check_auth
 
 logger = logging.getLogger(__name__)
@@ -49,13 +49,28 @@ def process_meeting(meeting_id: int):
             meeting_id, result["duration"], result["language"],
         )
 
-        analysis = analyze_meeting(result["full_text"])
+        # Auto-generate title if placeholder
+        if meeting["title"].startswith("_auto_"):
+            try:
+                ai_title = generate_title(result["full_text"])
+                update_meeting(meeting_id, title=ai_title)
+                meeting["title"] = ai_title
+                logger.info("AI generated title for #%d: %s", meeting_id, ai_title)
+            except Exception:
+                logger.warning("Failed to generate AI title for #%d, using filename", meeting_id)
+                fallback = meeting["filename"].rsplit(".", 1)[0] if "." in meeting["filename"] else meeting["filename"]
+                update_meeting(meeting_id, title=fallback)
+                meeting["title"] = fallback
+
+        # Re-fetch meeting to get latest data including title
+        meeting = get_meeting(meeting_id)
+        analysis = analyze_meeting(result["full_text"], meeting=meeting)
         update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis)
         logger.info("Analysis done for meeting #%d", meeting_id)
 
         if FEISHU_WEBHOOK_URL:
             from app.services.feishu import push_to_feishu
-            push_to_feishu(meeting["title"], analysis)
+            push_to_feishu(meeting, analysis)
 
     except Exception as exc:
         logger.exception("Processing failed for meeting #%d", meeting_id)
@@ -76,6 +91,9 @@ async def upload(
     request: Request,
     file: UploadFile = File(...),
     title: str = Form(""),
+    meeting_time: str = Form(""),
+    location: str = Form(""),
+    participants: str = Form(""),
 ):
     if not check_auth(request):
         return RedirectResponse(url="/login")
@@ -94,8 +112,15 @@ async def upload(
         content = await file.read()
         f.write(content)
 
-    meeting_title = title.strip() or Path(file.filename).stem
-    meeting_id = create_meeting(meeting_title, file.filename, str(save_path))
+    # Use placeholder if no title given; will be replaced by AI after transcription
+    meeting_title = title.strip() or f"_auto_{uuid.uuid4().hex[:8]}"
+
+    meeting_id = create_meeting(
+        meeting_title, file.filename, str(save_path),
+        meeting_time=meeting_time.strip(),
+        location=location.strip(),
+        participants=participants.strip(),
+    )
     logger.info("Uploaded meeting #%d: %s -> %s", meeting_id, file.filename, safe_name)
 
     background_tasks.add_task(process_meeting, meeting_id)
@@ -120,7 +145,7 @@ async def meeting_status(request: Request, meeting_id: int):
     meeting = get_meeting(meeting_id)
     if not meeting:
         return {"error": "not found"}
-    return {"id": meeting_id, "status": meeting["status"]}
+    return {"id": meeting_id, "status": meeting["status"], "title": meeting["title"]}
 
 
 @router.post("/{meeting_id}/delete")
@@ -147,11 +172,15 @@ async def reanalyze(
     def do_reanalyze():
         try:
             update_meeting(meeting_id, status=MeetingStatus.ANALYZING)
-            analysis = analyze_meeting(meeting["transcript"], custom_prompt=custom_prompt or None)
+            analysis = analyze_meeting(
+                meeting["transcript"],
+                custom_prompt=custom_prompt or None,
+                meeting=meeting,
+            )
             update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis)
             if FEISHU_WEBHOOK_URL:
                 from app.services.feishu import push_to_feishu
-                push_to_feishu(meeting["title"], analysis)
+                push_to_feishu(meeting, analysis)
         except Exception as exc:
             logger.exception("Re-analysis failed for meeting #%d", meeting_id)
             update_meeting(meeting_id, status=MeetingStatus.FAILED, error_message=str(exc))

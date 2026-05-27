@@ -20,6 +20,9 @@ def init_db():
             title TEXT NOT NULL,
             filename TEXT NOT NULL,
             audio_path TEXT NOT NULL,
+            meeting_time TEXT,
+            location TEXT,
+            participants TEXT,
             duration REAL,
             language TEXT,
             transcript TEXT,
@@ -31,20 +34,33 @@ def init_db():
             updated_at TEXT NOT NULL
         );
     """)
-    # Add error_message column if upgrading from older schema
-    try:
-        conn.execute("SELECT error_message FROM meetings LIMIT 1")
-    except Exception:
-        conn.execute("ALTER TABLE meetings ADD COLUMN error_message TEXT")
+    _migrate_columns(conn, {
+        "error_message": "TEXT",
+        "meeting_time": "TEXT",
+        "location": "TEXT",
+        "participants": "TEXT",
+    })
     conn.close()
 
 
-def create_meeting(title: str, filename: str, audio_path: str) -> int:
+def _migrate_columns(conn: sqlite3.Connection, columns: dict[str, str]):
+    """Add missing columns to meetings table for schema upgrades."""
+    for col, col_type in columns.items():
+        try:
+            conn.execute(f"SELECT {col} FROM meetings LIMIT 1")
+        except Exception:
+            conn.execute(f"ALTER TABLE meetings ADD COLUMN {col} {col_type}")
+
+
+def create_meeting(
+    title: str, filename: str, audio_path: str,
+    meeting_time: str = "", location: str = "", participants: str = "",
+) -> int:
     conn = get_db()
     now = datetime.now().isoformat()
     cursor = conn.execute(
-        "INSERT INTO meetings (title, filename, audio_path, status, created_at, updated_at) VALUES (?, ?, ?, 'uploaded', ?, ?)",
-        (title, filename, audio_path, now, now),
+        "INSERT INTO meetings (title, filename, audio_path, meeting_time, location, participants, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)",
+        (title, filename, audio_path, meeting_time or None, location or None, participants or None, now, now),
     )
     conn.commit()
     meeting_id = cursor.lastrowid
@@ -77,7 +93,7 @@ def get_meeting(meeting_id: int) -> dict | None:
 
 def list_meetings() -> list[dict]:
     conn = get_db()
-    rows = conn.execute("SELECT id, title, filename, duration, language, status, created_at FROM meetings ORDER BY created_at DESC").fetchall()
+    rows = conn.execute("SELECT id, title, filename, meeting_time, location, duration, language, status, created_at FROM meetings ORDER BY created_at DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
