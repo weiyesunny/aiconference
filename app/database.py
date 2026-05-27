@@ -28,6 +28,7 @@ def init_db():
             transcript TEXT,
             segments TEXT,
             analysis TEXT,
+            embedding BLOB,
             error_message TEXT,
             status TEXT NOT NULL DEFAULT 'uploaded',
             created_at TEXT NOT NULL,
@@ -39,6 +40,7 @@ def init_db():
         "meeting_time": "TEXT",
         "location": "TEXT",
         "participants": "TEXT",
+        "embedding": "BLOB",
     })
     conn.close()
 

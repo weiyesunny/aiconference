@@ -4,7 +4,7 @@ import re
 import logging
 from openai import OpenAI
 from app.config import DASHSCOPE_API_KEY, QWEN_BASE_URL, QWEN_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
-from app.prompts import get_system_prompt, get_user_prompt, build_metadata_context
+from app.prompts import get_system_prompt, get_user_prompt, build_metadata_context, build_rag_context
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ def analyze_meeting(
     custom_prompt: str | None = None,
     meeting: dict | None = None,
     need_title: bool = False,
+    similar_meetings: list[dict] | None = None,
 ) -> dict | str:
     """Analyze meeting transcript with LLM.
 
@@ -33,7 +34,10 @@ def analyze_meeting(
     user_template = get_user_prompt()
 
     metadata = build_metadata_context(meeting) if meeting else ""
-    user_message = user_template.format(transcript=transcript, metadata=metadata)
+    rag_context = build_rag_context(similar_meetings) if similar_meetings else ""
+    user_message = user_template.format(
+        transcript=transcript, metadata=metadata, rag_context=rag_context,
+    )
 
     response = client.chat.completions.create(
         model=QWEN_MODEL,

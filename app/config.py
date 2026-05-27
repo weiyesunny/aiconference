@@ -20,6 +20,11 @@ LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))
 # ASR
 ASR_MODEL = os.getenv("ASR_MODEL", "paraformer-realtime-v2")
 
+# Embedding + RAG
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v3")
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "3"))
+RAG_MIN_SCORE = float(os.getenv("RAG_MIN_SCORE", "0.3"))
+
 # Feishu Incoming Webhook
 FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "")
 

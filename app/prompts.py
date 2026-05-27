@@ -29,7 +29,7 @@ PROMPTS = {
 ## 未解决问题
 （列出会议中提出但未解决的问题或争议点，如果没有则写"无"）
 """,
-        "user": "{metadata}以下是会议转录文本，请生成会议纪要：\n\n{transcript}",
+        "user": "{metadata}{rag_context}以下是会议转录文本，请生成会议纪要：\n\n{transcript}",
     },
 }
 
@@ -58,3 +58,45 @@ def build_metadata_context(meeting: dict) -> str:
     if not parts:
         return ""
     return "会议基本信息：\n" + "\n".join(parts) + "\n\n"
+
+
+def build_rag_context(similar_meetings: list[dict]) -> str:
+    """Build RAG context from similar past meetings for LLM reference."""
+    if not similar_meetings:
+        return ""
+
+    sections = []
+    for m in similar_meetings:
+        header = f"【{m['title']}】"
+        if m.get("meeting_time"):
+            header += f"（{m['meeting_time']}）"
+        # Include only the summary section to keep context concise
+        analysis = m.get("analysis", "")
+        summary = _extract_summary(analysis)
+        sections.append(f"{header}\n{summary}")
+
+    return (
+        "以下是该团队近期的相关会议纪要摘要，请在分析时参考其中的背景信息和上下文：\n\n"
+        + "\n\n".join(sections)
+        + "\n\n---\n\n"
+    )
+
+
+def _extract_summary(analysis: str) -> str:
+    """Extract the '会议摘要' section from analysis markdown."""
+    lines = analysis.split("\n")
+    in_summary = False
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## 会议摘要"):
+            in_summary = True
+            continue
+        if in_summary and stripped.startswith("## "):
+            break
+        if in_summary and stripped:
+            result.append(stripped)
+    if result:
+        return "\n".join(result)
+    # Fallback: first 200 chars of analysis
+    return analysis[:200]

@@ -13,6 +13,7 @@ from app.constants import MeetingStatus, ALLOWED_AUDIO_EXTENSIONS
 from app.database import create_meeting, update_meeting, get_meeting, list_meetings, delete_meeting
 from app.services.asr import transcribe
 from app.services.analyzer import analyze_meeting
+from app.services.embedding import search_similar, store_embedding
 from app.routes.auth import check_auth
 
 logger = logging.getLogger(__name__)
@@ -49,9 +50,13 @@ def process_meeting(meeting_id: int):
             meeting_id, result["duration"], result["language"],
         )
 
+        # RAG: search similar past meetings for context
+        similar = search_similar(result["full_text"], exclude_id=meeting_id)
+
         needs_title = meeting["title"].startswith("_auto_")
         result_obj = analyze_meeting(
-            result["full_text"], meeting=meeting, need_title=needs_title,
+            result["full_text"], meeting=meeting,
+            need_title=needs_title, similar_meetings=similar,
         )
 
         if needs_title:
@@ -63,6 +68,9 @@ def process_meeting(meeting_id: int):
         else:
             analysis = result_obj
             update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis)
+
+        # Store embedding for future RAG searches
+        store_embedding(meeting_id, analysis)
 
         meeting = get_meeting(meeting_id)
         logger.info("Analysis done for meeting #%d", meeting_id)
@@ -171,12 +179,15 @@ async def reanalyze(
     def do_reanalyze():
         try:
             update_meeting(meeting_id, status=MeetingStatus.ANALYZING)
+            similar = search_similar(meeting["transcript"], exclude_id=meeting_id)
             analysis = analyze_meeting(
                 meeting["transcript"],
                 custom_prompt=custom_prompt or None,
                 meeting=meeting,
+                similar_meetings=similar,
             )
             update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis)
+            store_embedding(meeting_id, analysis)
             if FEISHU_WEBHOOK_URL:
                 from app.services.feishu import push_to_feishu
                 push_to_feishu(meeting, analysis)
