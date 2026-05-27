@@ -8,5 +8,6 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./data:/app/data
+      - ./knowledge_docs:/app/knowledge_docs
     env_file:
       - .env
