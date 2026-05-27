@@ -12,7 +12,7 @@ from app.config import UPLOAD_DIR, FEISHU_WEBHOOK_URL
 from app.constants import MeetingStatus, ALLOWED_AUDIO_EXTENSIONS
 from app.database import create_meeting, update_meeting, get_meeting, list_meetings, delete_meeting
 from app.services.asr import transcribe
-from app.services.analyzer import analyze_meeting, generate_title
+from app.services.analyzer import analyze_meeting
 from app.routes.auth import check_auth
 
 logger = logging.getLogger(__name__)
@@ -49,23 +49,22 @@ def process_meeting(meeting_id: int):
             meeting_id, result["duration"], result["language"],
         )
 
-        # Auto-generate title if placeholder
-        if meeting["title"].startswith("_auto_"):
-            try:
-                ai_title = generate_title(result["full_text"])
-                update_meeting(meeting_id, title=ai_title)
-                meeting["title"] = ai_title
-                logger.info("AI generated title for #%d: %s", meeting_id, ai_title)
-            except Exception:
-                logger.warning("Failed to generate AI title for #%d, using filename", meeting_id)
-                fallback = meeting["filename"].rsplit(".", 1)[0] if "." in meeting["filename"] else meeting["filename"]
-                update_meeting(meeting_id, title=fallback)
-                meeting["title"] = fallback
+        needs_title = meeting["title"].startswith("_auto_")
+        result_obj = analyze_meeting(
+            result["full_text"], meeting=meeting, need_title=needs_title,
+        )
 
-        # Re-fetch meeting to get latest data including title
+        if needs_title:
+            ai_title = result_obj["title"]
+            analysis = result_obj["analysis"]
+            update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis, title=ai_title)
+            meeting["title"] = ai_title
+            logger.info("AI generated title for #%d: %s", meeting_id, ai_title)
+        else:
+            analysis = result_obj
+            update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis)
+
         meeting = get_meeting(meeting_id)
-        analysis = analyze_meeting(result["full_text"], meeting=meeting)
-        update_meeting(meeting_id, status=MeetingStatus.COMPLETED, analysis=analysis)
         logger.info("Analysis done for meeting #%d", meeting_id)
 
         if FEISHU_WEBHOOK_URL:
