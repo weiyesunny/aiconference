@@ -1,4 +1,4 @@
-"""Send meeting minutes to Feishu group via Incoming Webhook."""
+"""Send meeting minutes to Feishu group via Incoming Webhook (card message)."""
 import logging
 import httpx
 
@@ -6,16 +6,18 @@ from app.config import FEISHU_WEBHOOK_URL
 
 logger = logging.getLogger(__name__)
 
+CARD_HEADER_COLOR = "blue"
+
 
 def push_to_feishu(title: str, analysis: str) -> bool:
-    """Push meeting minutes to Feishu group chat. Returns True on success."""
+    """Push meeting minutes to Feishu group chat as a card message."""
     if not FEISHU_WEBHOOK_URL:
         return False
 
-    content = _build_post(title, analysis)
+    card = _build_card(title, analysis)
 
     try:
-        resp = httpx.post(FEISHU_WEBHOOK_URL, json=content, timeout=15)
+        resp = httpx.post(FEISHU_WEBHOOK_URL, json=card, timeout=15)
         data = resp.json()
         if data.get("code") == 0:
             logger.info("Pushed meeting minutes to Feishu: %s", title)
@@ -28,38 +30,51 @@ def push_to_feishu(title: str, analysis: str) -> bool:
         return False
 
 
-def _build_post(title: str, markdown_text: str) -> dict:
-    """Build Feishu rich text (post) message from markdown-like text."""
-    lines = markdown_text.strip().split("\n")
-    content_lines = []
+def _build_card(title: str, markdown_text: str) -> dict:
+    """Build a Feishu interactive card from analysis markdown."""
+    elements = []
+    current_section = []
 
-    for line in lines:
+    for line in markdown_text.strip().split("\n"):
         stripped = line.strip()
         if not stripped:
             continue
-        if stripped.startswith("## "):
-            content_lines.append([{"tag": "text", "text": "\n"}])
-            content_lines.append([{"tag": "text", "text": f"📌 {stripped[3:]}", "style": ["bold"]}])
-        elif stripped.startswith("### "):
-            content_lines.append([{"tag": "text", "text": stripped[4:], "style": ["bold"]}])
-        elif stripped.startswith("- ") or stripped.startswith("* "):
-            content_lines.append([{"tag": "text", "text": f"  • {stripped[2:]}"}])
-        elif stripped.startswith("**") and stripped.endswith("**"):
-            content_lines.append([{"tag": "text", "text": stripped.strip("*"), "style": ["bold"]}])
-        else:
-            content_lines.append([{"tag": "text", "text": stripped}])
 
-    if not content_lines:
-        content_lines = [[{"tag": "text", "text": markdown_text[:2000]}]]
+        if stripped.startswith("## "):
+            if current_section:
+                elements.append({"tag": "markdown", "content": "\n".join(current_section)})
+                current_section = []
+            elements.append({"tag": "hr"})
+            section_title = stripped[3:].strip()
+            elements.append({
+                "tag": "markdown",
+                "content": f"**📌 {section_title}**",
+            })
+        elif stripped.startswith("### "):
+            current_section.append(f"**{stripped[4:].strip()}**")
+        elif stripped.startswith("- ") or stripped.startswith("* "):
+            current_section.append(f"• {stripped[2:]}")
+        elif stripped.startswith("**") and stripped.endswith("**"):
+            current_section.append(stripped)
+        else:
+            current_section.append(stripped)
+
+    if current_section:
+        elements.append({"tag": "markdown", "content": "\n".join(current_section)})
+
+    elements.append({"tag": "hr"})
+    elements.append({
+        "tag": "note",
+        "elements": [{"tag": "plain_text", "content": "American First Investment · AI会议助手"}],
+    })
 
     return {
-        "msg_type": "post",
-        "content": {
-            "post": {
-                "zh_cn": {
-                    "title": f"📋 会议纪要: {title}",
-                    "content": content_lines,
-                }
-            }
+        "msg_type": "interactive",
+        "card": {
+            "header": {
+                "title": {"tag": "plain_text", "content": f"📋 会议纪要: {title}"},
+                "template": CARD_HEADER_COLOR,
+            },
+            "elements": elements,
         }
     }
