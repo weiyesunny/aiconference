@@ -42,6 +42,12 @@
                 <span class="rec-status" id="recStatus"></span>
             </div>
         </div>
+        <div class="form-group form-group-inline">
+            <label class="checkbox-label">
+                <input type="checkbox" name="push_feishu" id="push_feishu" checked>
+                <span class="checkbox-text">处理完成后推送到飞书群</span>
+            </label>
+        </div>
         <button type="submit" class="btn btn-primary" id="btnSubmit">上传并分析</button>
     </form>
 </section>
@@ -88,6 +94,7 @@
     const meetingTimeInput = document.getElementById('meeting_time');
     const locationInput = document.getElementById('location');
     const participantsInput = document.getElementById('participants');
+    const pushFeishuInput = document.getElementById('push_feishu');
 
     let mediaRecorder = null;
     let chunks = [];
@@ -185,6 +192,7 @@
             if (meetingTimeInput.value) fd.append('meeting_time', meetingTimeInput.value);
             if (locationInput.value) fd.append('location', locationInput.value);
             if (participantsInput.value) fd.append('participants', participantsInput.value);
+            if (pushFeishuInput.checked) fd.append('push_feishu', 'on');
 
             const btn = document.getElementById('btnSubmit');
             btn.disabled = true;

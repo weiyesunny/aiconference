@@ -52,7 +52,13 @@
 
 {% if meeting.analysis %}
 <section class="result-section">
-    <h3>会议纪要</h3>
+    <div class="section-header">
+        <h3>会议纪要</h3>
+        <a href="/minutes/{{ meeting.id }}/download" class="btn btn-download">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle"><path d="M8 1v9m0 0L5 7m3 3l3-3M2 12v1.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            下载 Word
+        </a>
+    </div>
     <div class="analysis-content" id="analysis">{{ meeting.analysis }}</div>
 </section>
 {% endif %}

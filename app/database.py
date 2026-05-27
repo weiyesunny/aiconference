@@ -29,6 +29,7 @@ def init_db():
             segments TEXT,
             analysis TEXT,
             embedding BLOB,
+            push_feishu INTEGER DEFAULT 1,
             error_message TEXT,
             status TEXT NOT NULL DEFAULT 'uploaded',
             created_at TEXT NOT NULL,
@@ -41,6 +42,7 @@ def init_db():
         "location": "TEXT",
         "participants": "TEXT",
         "embedding": "BLOB",
+        "push_feishu": "INTEGER DEFAULT 1",
     })
     conn.close()
 
@@ -57,12 +59,13 @@ def _migrate_columns(conn: sqlite3.Connection, columns: dict[str, str]):
 def create_meeting(
     title: str, filename: str, audio_path: str,
     meeting_time: str = "", location: str = "", participants: str = "",
+    push_feishu: bool = True,
 ) -> int:
     conn = get_db()
     now = datetime.now().isoformat()
     cursor = conn.execute(
-        "INSERT INTO meetings (title, filename, audio_path, meeting_time, location, participants, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)",
-        (title, filename, audio_path, meeting_time or None, location or None, participants or None, now, now),
+        "INSERT INTO meetings (title, filename, audio_path, meeting_time, location, participants, push_feishu, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)",
+        (title, filename, audio_path, meeting_time or None, location or None, participants or None, int(push_feishu), now, now),
     )
     conn.commit()
     meeting_id = cursor.lastrowid

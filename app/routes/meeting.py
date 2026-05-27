@@ -4,9 +4,10 @@ import json
 import uuid
 import logging
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
 from app.config import UPLOAD_DIR, FEISHU_WEBHOOK_URL
 from app.constants import MeetingStatus, ALLOWED_AUDIO_EXTENSIONS
@@ -75,7 +76,7 @@ def process_meeting(meeting_id: int):
         meeting = get_meeting(meeting_id)
         logger.info("Analysis done for meeting #%d", meeting_id)
 
-        if FEISHU_WEBHOOK_URL:
+        if FEISHU_WEBHOOK_URL and meeting.get("push_feishu"):
             from app.services.feishu import push_to_feishu
             push_to_feishu(meeting, analysis)
 
@@ -101,6 +102,7 @@ async def upload(
     meeting_time: str = Form(""),
     location: str = Form(""),
     participants: str = Form(""),
+    push_feishu: str = Form(""),
 ):
     if not check_auth(request):
         return RedirectResponse(url="/login")
@@ -119,14 +121,15 @@ async def upload(
         content = await file.read()
         f.write(content)
 
-    # Use placeholder if no title given; will be replaced by AI after transcription
     meeting_title = title.strip() or f"_auto_{uuid.uuid4().hex[:8]}"
+    should_push = push_feishu == "on"
 
     meeting_id = create_meeting(
         meeting_title, file.filename, str(save_path),
         meeting_time=meeting_time.strip(),
         location=location.strip(),
         participants=participants.strip(),
+        push_feishu=should_push,
     )
     logger.info("Uploaded meeting #%d: %s -> %s", meeting_id, file.filename, safe_name)
 
@@ -153,6 +156,31 @@ async def meeting_status(request: Request, meeting_id: int):
     if not meeting:
         return {"error": "not found"}
     return {"id": meeting_id, "status": meeting["status"], "title": meeting["title"]}
+
+
+@router.get("/{meeting_id}/download")
+async def download_docx(request: Request, meeting_id: int):
+    if not check_auth(request):
+        return RedirectResponse(url="/login")
+    meeting = get_meeting(meeting_id)
+    if not meeting or not meeting.get("analysis"):
+        return RedirectResponse(url=f"/minutes/{meeting_id}", status_code=303)
+
+    from app.services.export import markdown_to_docx
+    buf = markdown_to_docx(meeting["analysis"], meeting)
+
+    title = meeting["title"]
+    if title.startswith("_auto_"):
+        title = "会议纪要"
+    safe_title = title[:50].strip() or "meeting"
+    filename = f"{safe_title}.docx"
+    encoded = quote(filename)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+    )
 
 
 @router.post("/{meeting_id}/delete")
