@@ -31,6 +31,9 @@ FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "")
 # Web access password (empty = no auth)
 ACCESS_PASSWORD = os.getenv("ACCESS_PASSWORD", "")
 
+# Knowledge base password (separate access control)
+KNOWLEDGE_PASSWORD = os.getenv("KNOWLEDGE_PASSWORD", "")
+
 # Storage paths
 UPLOAD_DIR = BASE_DIR / os.getenv("UPLOAD_DIR", "uploads")
 DATABASE_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "data/meetings.db")

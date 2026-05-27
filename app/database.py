@@ -44,6 +44,18 @@ def init_db():
         "embedding": "BLOB",
         "push_feishu": "INTEGER DEFAULT 1",
     })
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS knowledge_docs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_path TEXT,
+            content TEXT,
+            doc_type TEXT NOT NULL,
+            embedding BLOB,
+            created_at TEXT NOT NULL
+        );
+    """)
     conn.close()
 
 
@@ -113,3 +125,60 @@ def delete_meeting(meeting_id: int):
     conn.execute("DELETE FROM meetings WHERE id = ?", (meeting_id,))
     conn.commit()
     conn.close()
+
+
+# ---- Knowledge Docs ----
+
+def create_knowledge_doc(title: str, filename: str, file_path: str, content: str, doc_type: str) -> int:
+    conn = get_db()
+    now = datetime.now().isoformat()
+    cursor = conn.execute(
+        "INSERT INTO knowledge_docs (title, filename, file_path, content, doc_type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (title, filename, file_path, content, doc_type, now),
+    )
+    conn.commit()
+    doc_id = cursor.lastrowid
+    conn.close()
+    return doc_id
+
+
+def list_knowledge_docs() -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, title, filename, doc_type, created_at, "
+        "CASE WHEN embedding IS NOT NULL THEN 1 ELSE 0 END AS has_embedding "
+        "FROM knowledge_docs ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_knowledge_doc(doc_id: int) -> dict | None:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM knowledge_docs WHERE id = ?", (doc_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def delete_knowledge_doc(doc_id: int):
+    conn = get_db()
+    row = conn.execute("SELECT file_path FROM knowledge_docs WHERE id = ?", (doc_id,)).fetchone()
+    if row and row["file_path"]:
+        path = Path(row["file_path"])
+        if path.exists():
+            path.unlink()
+    conn.execute("DELETE FROM knowledge_docs WHERE id = ?", (doc_id,))
+    conn.commit()
+    conn.close()
+
+
+def list_completed_meetings() -> list[dict]:
+    """List completed meetings for knowledge base display."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, title, meeting_time, location, duration, created_at, "
+        "CASE WHEN embedding IS NOT NULL THEN 1 ELSE 0 END AS has_embedding "
+        "FROM meetings WHERE status = 'completed' ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]

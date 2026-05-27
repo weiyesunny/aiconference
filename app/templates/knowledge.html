@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}知识库 - 美国第一投资{% endblock %}
+{% block nav_sub %}<span class="nav-sub"><a href="/" class="nav-back">&larr; 返回首页</a> / 知识库</span>{% endblock %}
+{% block content %}
+
+<section class="upload-section">
+    <h2>上传文档到知识库</h2>
+    {% if error %}
+    <div class="alert error">{{ error }}</div>
+    {% endif %}
+    <form action="/knowledge/upload" method="post" enctype="multipart/form-data" class="upload-form">
+        <div class="form-row">
+            <div class="form-group form-group-half">
+                <label for="title">文档标题（可选）</label>
+                <input type="text" id="title" name="title" placeholder="留空则使用文件名">
+            </div>
+            <div class="form-group form-group-half">
+                <label for="file">选择文件</label>
+                <input type="file" id="file" name="file" accept=".txt,.md,.docx,.pdf">
+                <small>支持 TXT, MD, DOCX, PDF</small>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">上传并入库</button>
+    </form>
+</section>
+
+{% if meetings %}
+<section class="meetings-section">
+    <h2>会议纪要 <span class="kb-count">{{ meetings|length }}</span></h2>
+    <div class="kb-list">
+        {% for m in meetings %}
+        <div class="kb-item">
+            <div class="kb-item-icon">📋</div>
+            <div class="kb-item-body">
+                <a href="/minutes/{{ m.id }}" class="kb-item-title">{{ m.title }}</a>
+                <div class="kb-item-meta">
+                    {% if m.meeting_time %}<span>{{ m.meeting_time }}</span>{% endif %}
+                    {% if m.location %}<span>{{ m.location }}</span>{% endif %}
+                    {% if m.duration %}<span>{{ "%.0f"|format(m.duration // 60) }}分{{ "%.0f"|format(m.duration % 60) }}秒</span>{% endif %}
+                    <span>{{ m.created_at[:16] }}</span>
+                    {% if m.has_embedding %}
+                    <span class="kb-badge kb-badge-ok">已向量化</span>
+                    {% else %}
+                    <span class="kb-badge kb-badge-wait">未向量化</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if docs %}
+<section class="meetings-section">
+    <h2>知识文档 <span class="kb-count">{{ docs|length }}</span></h2>
+    <div class="kb-list">
+        {% for d in docs %}
+        <div class="kb-item">
+            <div class="kb-item-icon">
+                {% if d.doc_type == 'pdf' %}📕
+                {% elif d.doc_type == 'docx' %}📘
+                {% elif d.doc_type == 'md' %}📗
+                {% else %}📄{% endif %}
+            </div>
+            <div class="kb-item-body">
+                <div class="kb-item-title">{{ d.title }}</div>
+                <div class="kb-item-meta">
+                    <span>{{ d.filename }}</span>
+                    <span>{{ d.created_at[:16] }}</span>
+                    {% if d.has_embedding %}
+                    <span class="kb-badge kb-badge-ok">已向量化</span>
+                    {% else %}
+                    <span class="kb-badge kb-badge-wait">处理中...</span>
+                    {% endif %}
+                </div>
+            </div>
+            <form action="/knowledge/{{ d.id }}/delete" method="post"
+                  onsubmit="return confirm('确定删除该文档？')">
+                <button type="submit" class="btn btn-danger btn-sm">删除</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if not meetings and not docs %}
+<section class="meetings-section" style="text-align:center; padding:48px 20px; color: #94a3b8;">
+    <p style="font-size:36px; margin-bottom:12px;">📚</p>
+    <p>知识库为空，上传文档或开始创建会议纪要</p>
+</section>
+{% endif %}
+
+{% endblock %}

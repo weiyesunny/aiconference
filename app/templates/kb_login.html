@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}知识库访问验证{% endblock %}
+{% block nav_sub %}<span class="nav-sub"><a href="/" class="nav-back">&larr; 首页</a> / 知识库</span>{% endblock %}
+{% block content %}
+<section class="login-section">
+    <h2>知识库访问验证</h2>
+    <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">知识库包含敏感数据，需要单独授权</p>
+    {% if error %}
+    <div class="alert error">{{ error }}</div>
+    {% endif %}
+    <form action="/knowledge/login" method="post" class="login-form">
+        <div class="form-group">
+            <label for="password">知识库密码</label>
+            <input type="password" id="password" name="password" placeholder="请输入知识库密码" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">进入知识库</button>
+    </form>
+</section>
+{% endblock %}

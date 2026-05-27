@@ -56,6 +56,20 @@ def store_embedding(meeting_id: int, text: str) -> None:
         logger.exception("Failed to generate/store embedding for meeting #%d", meeting_id)
 
 
+def store_doc_embedding(doc_id: int, text: str) -> None:
+    """Generate and store embedding for a knowledge document."""
+    try:
+        vec = generate_embedding(text)
+        blob = embedding_to_bytes(vec)
+        conn = get_db()
+        conn.execute("UPDATE knowledge_docs SET embedding = ? WHERE id = ?", (blob, doc_id))
+        conn.commit()
+        conn.close()
+        logger.info("Stored embedding for doc #%d (%d dim)", doc_id, len(vec))
+    except Exception:
+        logger.exception("Failed to generate/store embedding for doc #%d", doc_id)
+
+
 def search_similar(query_text: str, exclude_id: Optional[int] = None) -> list[dict]:
     """Find top-K similar past meetings by cosine similarity.
 
@@ -68,13 +82,17 @@ def search_similar(query_text: str, exclude_id: Optional[int] = None) -> list[di
         return []
 
     conn = get_db()
-    rows = conn.execute(
+    meeting_rows = conn.execute(
         "SELECT id, title, analysis, meeting_time, location, participants, embedding "
         "FROM meetings WHERE status = 'completed' AND embedding IS NOT NULL"
     ).fetchall()
+    doc_rows = conn.execute(
+        "SELECT id, title, content, embedding "
+        "FROM knowledge_docs WHERE embedding IS NOT NULL"
+    ).fetchall()
     conn.close()
 
-    if not rows:
+    if not meeting_rows and not doc_rows:
         return []
 
     results = []
@@ -82,7 +100,7 @@ def search_similar(query_text: str, exclude_id: Optional[int] = None) -> list[di
     if query_norm == 0:
         return []
 
-    for row in rows:
+    for row in meeting_rows:
         if exclude_id and row["id"] == exclude_id:
             continue
         stored_vec = bytes_to_embedding(row["embedding"])
@@ -98,6 +116,24 @@ def search_similar(query_text: str, exclude_id: Optional[int] = None) -> list[di
             "location": row["location"],
             "participants": row["participants"],
             "score": score,
+            "source": "meeting",
+        })
+
+    for row in doc_rows:
+        stored_vec = bytes_to_embedding(row["embedding"])
+        stored_norm = np.linalg.norm(stored_vec)
+        if stored_norm == 0:
+            continue
+        score = float(np.dot(query_vec, stored_vec) / (query_norm * stored_norm))
+        results.append({
+            "id": row["id"],
+            "title": row["title"],
+            "analysis": row["content"][:1000],
+            "meeting_time": None,
+            "location": None,
+            "participants": None,
+            "score": score,
+            "source": "document",
         })
 
     results.sort(key=lambda x: x["score"], reverse=True)

@@ -52,32 +52,6 @@
     </form>
 </section>
 
-{% if meetings %}
-<section class="meetings-section">
-    <h2>会议记录</h2>
-    <div class="meetings-list">
-        {% for m in meetings %}
-        <a href="/minutes/{{ m.id }}" class="meeting-card">
-            <div class="meeting-title">{% if m.title.startswith('_auto_') %}生成标题中...{% else %}{{ m.title }}{% endif %}</div>
-            <div class="meeting-meta">
-                <span class="status status-{{ m.status }}">
-                    {% if m.status == 'uploaded' %}已上传
-                    {% elif m.status == 'transcribing' %}转录中
-                    {% elif m.status == 'analyzing' %}分析中
-                    {% elif m.status == 'completed' %}已完成
-                    {% elif m.status == 'failed' %}失败
-                    {% else %}{{ m.status }}{% endif %}
-                </span>
-                {% if m.meeting_time %}<span>🕐 {{ m.meeting_time }}</span>{% endif %}
-                {% if m.location %}<span>📍 {{ m.location }}</span>{% endif %}
-                {% if m.duration %}<span>{{ "%.0f"|format(m.duration // 60) }}分{{ "%.0f"|format(m.duration % 60) }}秒</span>{% endif %}
-                <span>{{ m.created_at[:16] }}</span>
-            </div>
-        </a>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}

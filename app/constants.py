@@ -21,7 +21,10 @@ BRAND_SUB = "AI会议助手"
 BRAND_EN = "American First Investment"
 
 AUTH_COOKIE_NAME = "auth_token"
+KB_COOKIE_NAME = "kb_auth_token"
 AUTH_COOKIE_MAX_AGE = 86400 * 30  # 30 days
+
+ALLOWED_DOC_EXTENSIONS = {".txt", ".md", ".docx", ".pdf"}
 
 ASR_SAMPLE_RATE = 16000
 ASR_CHANNELS = 1

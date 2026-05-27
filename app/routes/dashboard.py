@@ -45,9 +45,9 @@ MODULES = [
         "id": "knowledge",
         "icon": "🧠",
         "title": "知识库",
-        "desc": "构建团队知识库，AI 驱动的智能搜索与问答",
-        "url": "#",
-        "active": False,
+        "desc": "会议纪要归档与文档管理，构建 AI 驱动的团队知识体系",
+        "url": "/knowledge/",
+        "active": True,
         "color": "amber",
     },
 ]

@@ -89,8 +89,7 @@ def process_meeting(meeting_id: int):
 async def index(request: Request):
     if not check_auth(request):
         return RedirectResponse(url="/login")
-    meetings = list_meetings()
-    return _get_templates().TemplateResponse("minutes.html", {"request": request, "meetings": meetings})
+    return _get_templates().TemplateResponse("minutes.html", {"request": request})
 
 
 @router.post("/upload")
