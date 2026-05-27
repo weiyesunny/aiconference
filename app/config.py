@@ -14,11 +14,8 @@ QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen-plus")
 # ASR 配置
 ASR_MODEL = os.getenv("ASR_MODEL", "paraformer-realtime-v2")
 
-# 飞书机器人
-FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "")
-FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "")
-FEISHU_VERIFICATION_TOKEN = os.getenv("FEISHU_VERIFICATION_TOKEN", "")
-FEISHU_ENCRYPT_KEY = os.getenv("FEISHU_ENCRYPT_KEY", "")
+# 飞书 Incoming Webhook（处理完成后推送纪要到群）
+FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "")
 
 # 网页访问密码（留空则不启用）
 ACCESS_PASSWORD = os.getenv("ACCESS_PASSWORD", "")
