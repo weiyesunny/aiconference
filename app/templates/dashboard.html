@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}美国第一投资 AI帮助中心{% endblock %}
+{% block container_class %}dashboard-container{% endblock %}
+{% block content %}
+<section class="dashboard-hero">
+    <h1>美国第一投资 AI帮助中心</h1>
+    <p class="hero-desc">智能工具平台，提升团队协作效率</p>
+</section>
+
+<section class="modules-grid">
+    {% for m in modules %}
+    <a href="{{ m.url }}" class="module-card module-{{ m.color }}{% if not m.active %} module-disabled{% endif %}">
+        <div class="module-icon">{{ m.icon }}</div>
+        <div class="module-body">
+            <h3>{{ m.title }}</h3>
+            <p>{{ m.desc }}</p>
+        </div>
+        {% if m.active %}
+        <span class="module-arrow">&rarr;</span>
+        {% else %}
+        <span class="module-badge">即将上线</span>
+        {% endif %}
+    </a>
+    {% endfor %}
+</section>
+
+<footer class="dashboard-footer">
+    <p>American First Investment &middot; AI Powered Workspace</p>
+</footer>
+{% endblock %}

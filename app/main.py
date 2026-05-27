@@ -30,9 +30,10 @@ app = FastAPI(title=f"{BRAND_NAME} - {BRAND_SUB}", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
-# Register routers
-from app.routes.auth import router as auth_router      # noqa: E402
-from app.routes.meeting import router as meeting_router  # noqa: E402
+from app.routes.auth import router as auth_router            # noqa: E402
+from app.routes.dashboard import router as dashboard_router   # noqa: E402
+from app.routes.meeting import router as meeting_router       # noqa: E402
 
 app.include_router(auth_router)
+app.include_router(dashboard_router)
 app.include_router(meeting_router)

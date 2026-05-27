@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ meeting.title }} - AI会议助手{% endblock %}
+{% block title %}{{ meeting.title }} - AI会议纪要{% endblock %}
+{% block nav_sub %}<span class="nav-sub"><a href="/" class="nav-back">&larr; 首页</a> / <a href="/minutes/" class="nav-back">会议纪要</a> / {{ meeting.title[:20] }}</span>{% endblock %}
 {% block content %}
 <div class="meeting-header">
     <h2>{{ meeting.title }}</h2>
@@ -66,7 +67,7 @@
 
 <section class="result-section">
     <h3>重新分析</h3>
-    <form action="/meeting/{{ meeting.id }}/reanalyze" method="post">
+    <form action="/minutes/{{ meeting.id }}/reanalyze" method="post">
         <div class="form-group">
             <label for="custom_prompt">自定义分析提示词（可选）</label>
             <textarea id="custom_prompt" name="custom_prompt" rows="3" placeholder="例如：请重点分析会议中关于技术架构的讨论，列出各方案的优缺点对比..."></textarea>
@@ -77,8 +78,8 @@
 {% endif %}
 
 <div class="actions">
-    <a href="/" class="btn">返回列表</a>
-    <form action="/meeting/{{ meeting.id }}/delete" method="post" style="display:inline" onsubmit="return confirm('确定要删除这条记录吗？')">
+    <a href="/minutes/" class="btn">返回列表</a>
+    <form action="/minutes/{{ meeting.id }}/delete" method="post" style="display:inline" onsubmit="return confirm('确定要删除这条记录吗？')">
         <button type="submit" class="btn btn-danger">删除</button>
     </form>
 </div>
@@ -90,7 +91,7 @@
 <script>
 (function poll() {
     setTimeout(function() {
-        fetch('/api/meeting/{{ meeting.id }}/status', {credentials: 'same-origin'})
+        fetch('/minutes/api/{{ meeting.id }}/status', {credentials: 'same-origin'})
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'completed' || data.status === 'failed') {

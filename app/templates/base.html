@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}AI 会议助手{% endblock %}</title>
+    <title>{% block title %}美国第一投资 AI帮助中心{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <nav class="navbar">
         <a href="/" class="logo">美国第一投资 AI帮助中心</a>
-        <span class="nav-sub">AI会议助手</span>
+        {% block nav_sub %}{% endblock %}
     </nav>
-    <main class="container">
+    <main class="container {% block container_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </main>
     {% block scripts %}{% endblock %}
