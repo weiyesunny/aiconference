@@ -689,6 +689,43 @@ summary:hover { color: var(--primary-hover); }
     line-height: 1.4;
 }
 
+/* ===== Upload Progress ===== */
+.upload-progress {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius-sm);
+}
+
+.progress-bar-track {
+    flex: 1;
+    height: 8px;
+    background: #dbeafe;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    white-space: nowrap;
+    min-width: 180px;
+    text-align: right;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
     .navbar { padding: 0 16px; gap: 10px; }

@@ -49,6 +49,12 @@
             </label>
         </div>
         <button type="submit" class="btn btn-primary" id="btnSubmit">上传并分析</button>
+        <div class="upload-progress" id="uploadProgress" style="display:none">
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <span class="progress-text" id="progressText">准备上传...</span>
+        </div>
     </form>
 </section>
 
@@ -142,17 +148,86 @@
         }
     });
 
+    let uploading = false;
+
+    function uploadWithProgress(fd) {
+        if (uploading) return;
+        uploading = true;
+
+        const btn = document.getElementById('btnSubmit');
+        const progressBox = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+
+        btn.disabled = true;
+        btn.textContent = '上传中...';
+        progressBox.style.display = 'flex';
+        progressFill.style.width = '0%';
+        progressText.textContent = '准备上传...';
+
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                progressFill.style.width = pct + '%';
+                const sizeMB = (e.loaded / 1024 / 1024).toFixed(1);
+                const totalMB = (e.total / 1024 / 1024).toFixed(1);
+                if (pct < 100) {
+                    progressText.textContent = '上传中 ' + sizeMB + ' / ' + totalMB + ' MB (' + pct + '%)';
+                } else {
+                    progressText.textContent = '上传完成，等待服务器处理...';
+                }
+            }
+        });
+
+        xhr.addEventListener('load', function() {
+            if (xhr.status >= 200 && xhr.status < 400) {
+                progressText.textContent = '提交成功，正在跳转...';
+                progressFill.style.width = '100%';
+                var url = xhr.responseURL || '/minutes/';
+                window.location.href = url;
+            } else {
+                resetUpload('服务器返回错误: ' + xhr.status);
+            }
+        });
+
+        xhr.addEventListener('error', function() {
+            resetUpload('网络错误，请检查连接后重试');
+        });
+
+        xhr.addEventListener('abort', function() {
+            resetUpload('上传已取消');
+        });
+
+        xhr.open('POST', '/minutes/upload');
+        xhr.send(fd);
+
+        function resetUpload(msg) {
+            uploading = false;
+            btn.disabled = false;
+            btn.textContent = '上传并分析';
+            progressFill.style.width = '0%';
+            progressText.textContent = msg;
+            progressText.style.color = '#dc2626';
+            setTimeout(function() { progressBox.style.display = 'none'; progressText.style.color = ''; }, 4000);
+        }
+    }
+
     form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (uploading) return;
+
         const hasFile = fileInput.files && fileInput.files.length > 0;
         if (!hasFile && !recordedBlob) {
-            e.preventDefault();
             recStatus.textContent = '请选择文件或先录音';
             recStatus.style.color = '#dc2626';
             return;
         }
+
+        const fd = new FormData();
+
         if (recordedBlob && !hasFile) {
-            e.preventDefault();
-            const fd = new FormData();
             const now = new Date();
             const ts = now.getFullYear()
                 + String(now.getMonth() + 1).padStart(2, '0')
@@ -160,32 +235,18 @@
                 + '_'
                 + String(now.getHours()).padStart(2, '0')
                 + String(now.getMinutes()).padStart(2, '0');
-            const filename = 'recording_' + ts + '.webm';
-            fd.append('file', recordedBlob, filename);
-            fd.append('title', titleInput.value || '');
-            if (meetingTimeInput.value) fd.append('meeting_time', meetingTimeInput.value);
-            if (locationInput.value) fd.append('location', locationInput.value);
-            if (participantsInput.value) fd.append('participants', participantsInput.value);
-            if (pushFeishuInput.checked) fd.append('push_feishu', 'on');
-
-            const btn = document.getElementById('btnSubmit');
-            btn.disabled = true;
-            btn.textContent = '上传中...';
-
-            fetch('/minutes/upload', { method: 'POST', body: fd, redirect: 'follow' })
-                .then(function(resp) {
-                    if (resp.redirected) {
-                        window.location.href = resp.url;
-                    } else {
-                        window.location.href = '/minutes/';
-                    }
-                })
-                .catch(function(err) {
-                    btn.disabled = false;
-                    btn.textContent = '上传并分析';
-                    recStatus.textContent = '上传失败: ' + err.message;
-                });
+            fd.append('file', recordedBlob, 'recording_' + ts + '.webm');
+        } else {
+            fd.append('file', fileInput.files[0]);
         }
+
+        fd.append('title', titleInput.value || '');
+        if (meetingTimeInput.value) fd.append('meeting_time', meetingTimeInput.value);
+        if (locationInput.value) fd.append('location', locationInput.value);
+        if (participantsInput.value) fd.append('participants', participantsInput.value);
+        if (pushFeishuInput.checked) fd.append('push_feishu', 'on');
+
+        uploadWithProgress(fd);
     });
 })();
 </script>
