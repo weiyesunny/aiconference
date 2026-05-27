@@ -1,69 +1,63 @@
 # AI 会议助手
 
-基于 DashScope（阿里云）的会议录音转录与智能分析工具。上传音频文件（或直接在浏览器中录音），自动完成语音识别和会议纪要生成。
+基于 DashScope（阿里云）的会议录音转录与智能分析工具。支持网页上传音频文件和飞书机器人两种使用方式。
 
 ## 功能
 
-- 上传音频文件或浏览器内录音
+- 网页上传音频文件（支持 MP3/M4A/WAV/WebM 等）
+- 浏览器内录音（需 HTTPS）
+- 飞书机器人：群聊中发送录音文件，自动回复会议纪要
 - DashScope Paraformer 语音转文字（支持说话人识别）
 - Qwen 大模型生成结构化会议纪要
 - 支持自定义分析提示词重新分析
-- 带时间戳的转录文本查看
+- 网页访问密码保护
 
-## 系统要求
-
-- Python 3.11+
-- ffmpeg / ffprobe（音频预处理）
-- DashScope API Key（[申请地址](https://dashscope.console.aliyun.com/)）
-
-## 快速开始
+## 快速开始（本地开发）
 
 ```bash
-# 克隆项目
-git clone <repo-url> && cd aiconference
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate
-
-# 安装依赖
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 填入你的 QWEN_API_KEY
-
-# 启动服务
+cp .env.example .env  # 编辑填入 QWEN_API_KEY
 uvicorn app.main:app --reload --port 8899
 ```
 
-浏览器访问 http://localhost:8899
+## Docker 部署
+
+```bash
+cp .env.example .env  # 编辑配置
+docker compose up -d --build
+```
+
+## DMIT 服务器部署
+
+详见 [deploy/DEPLOY.md](deploy/DEPLOY.md)
+
+## 环境变量
+
+| 变量 | 说明 | 必填 |
+|---|---|---|
+| `QWEN_API_KEY` | DashScope API Key | 是 |
+| `QWEN_MODEL` | LLM 模型 | 否（默认 qwen-plus） |
+| `ASR_MODEL` | ASR 模型 | 否（默认 paraformer-realtime-v2） |
+| `ACCESS_PASSWORD` | 网页访问密码 | 否（留空不启用） |
+| `FEISHU_APP_ID` | 飞书应用 ID | 否（不用飞书可留空） |
+| `FEISHU_APP_SECRET` | 飞书应用密钥 | 否 |
+| `FEISHU_VERIFICATION_TOKEN` | 飞书事件验证 Token | 否 |
 
 ## 项目结构
 
 ```
 app/
-├── main.py              # FastAPI 路由与后台任务
+├── main.py              # FastAPI 路由（Web + 飞书 Webhook）
 ├── config.py            # 环境变量配置
 ├── database.py          # SQLite 数据层
 ├── services/
 │   ├── asr.py           # DashScope Paraformer 语音识别
-│   └── analyzer.py      # Qwen LLM 会议纪要生成
+│   ├── analyzer.py      # Qwen LLM 会议纪要生成
+│   └── feishu.py        # 飞书 API（下载文件、发送消息）
 ├── templates/           # Jinja2 页面模板
 └── static/css/          # 样式文件
+deploy/
+├── DEPLOY.md            # DMIT 部署指南
+└── nginx-healthsupply.conf  # Nginx 反代配置
 ```
-
-## 环境变量
-
-| 变量 | 说明 | 默认值 |
-|---|---|---|
-| `QWEN_API_KEY` | DashScope API Key（必填） | - |
-| `QWEN_BASE_URL` | LLM API 地址 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| `QWEN_MODEL` | LLM 模型 | `qwen-plus` |
-| `ASR_MODEL` | ASR 模型 | `paraformer-realtime-v2` |
-| `UPLOAD_DIR` | 音频文件存储目录 | `uploads` |
-| `DATABASE_PATH` | SQLite 数据库路径 | `data/meetings.db` |
-
-## 许可证
-
-MIT

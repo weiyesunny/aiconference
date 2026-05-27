@@ -1,0 +1,13 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.git/
+.DS_Store
+uploads/*.m4a
+uploads/*.webm
+uploads/*.wav
+data/meetings.db
+test_asr.py
+PROJECT_DRAFT.md

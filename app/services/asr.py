@@ -12,12 +12,32 @@ logger = logging.getLogger(__name__)
 
 
 def _get_duration(audio_path: Path) -> float:
+    """Get audio duration; falls back to decoding if container has no metadata."""
     probe = subprocess.run(
         ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
         capture_output=True, text=True,
     )
-    return float(probe.stdout.strip())
+    raw = probe.stdout.strip()
+    try:
+        return float(raw)
+    except (ValueError, TypeError):
+        pass
+
+    # WebM and some containers may not embed duration; decode to measure
+    probe2 = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-select_streams", "a:0",
+         "-show_entries", "stream=duration", "-of",
+         "default=noprint_wrappers=1:nokey=1", str(audio_path)],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(probe2.stdout.strip())
+    except (ValueError, TypeError):
+        pass
+
+    logger.warning("Cannot determine duration from metadata, will be set after conversion")
+    return 0.0
 
 
 def _convert_to_wav(audio_path: Path) -> Path:
@@ -44,6 +64,10 @@ def transcribe(audio_path: str | Path) -> dict:
     logger.info("Audio duration: %.1fs, converting to WAV...", duration)
 
     wav_path = _convert_to_wav(audio_path)
+
+    if duration == 0.0:
+        duration = _get_duration(wav_path)
+        logger.info("Duration from WAV: %.1fs", duration)
 
     try:
         return _do_transcribe(wav_path, duration)

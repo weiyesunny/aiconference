@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}登录 - AI会议助手{% endblock %}
+{% block content %}
+<section class="login-section">
+    <h2>访问验证</h2>
+    {% if error %}
+    <div class="alert error">{{ error }}</div>
+    {% endif %}
+    <form action="/login" method="post" class="login-form">
+        <div class="form-group">
+            <label for="password">访问密码</label>
+            <input type="password" id="password" name="password" placeholder="请输入访问密码" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">进入</button>
+    </form>
+</section>
+{% endblock %}

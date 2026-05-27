@@ -1,0 +1,12 @@
+services:
+  aiconference:
+    build: .
+    container_name: aiconference
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8899:8899"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    env_file:
+      - .env

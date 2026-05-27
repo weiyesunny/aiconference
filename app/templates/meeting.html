@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ meeting.title }} - AI 会议助手{% endblock %}
+{% block title %}{{ meeting.title }} - AI会议助手{% endblock %}
 {% block content %}
 <div class="meeting-header">
     <h2>{{ meeting.title }}</h2>
@@ -23,8 +23,8 @@
     <div class="spinner"></div>
     <p>
         {% if meeting.status == 'uploaded' %}准备处理中...
-        {% elif meeting.status == 'transcribing' %}正在云端转录音频（Paraformer-v2），通常 1-2 分钟完成...
-        {% elif meeting.status == 'analyzing' %}转录完成，正在 AI 分析...
+        {% elif meeting.status == 'transcribing' %}正在云端转录音频，通常 1-2 分钟完成...
+        {% elif meeting.status == 'analyzing' %}转录完成，正在 AI 分析生成会议纪要...
         {% endif %}
     </p>
 </div>
@@ -45,7 +45,7 @@
 <section class="result-section">
     <h3>完整转录</h3>
     <details>
-        <summary>展开查看转录文本</summary>
+        <summary>展开查看转录文本（{{ meeting.segments|length if meeting.segments else 0 }} 条语音片段）</summary>
         <div class="transcript-content">
             {% if meeting.segments %}
                 {% for seg in meeting.segments %}
@@ -66,8 +66,8 @@
     <h3>重新分析</h3>
     <form action="/meeting/{{ meeting.id }}/reanalyze" method="post">
         <div class="form-group">
-            <label for="custom_prompt">自定义分析提示词（可选，留空使用默认模板）</label>
-            <textarea id="custom_prompt" name="custom_prompt" rows="4" placeholder="例如：请重点分析会议中关于技术架构的讨论，列出各方案的优缺点对比..."></textarea>
+            <label for="custom_prompt">自定义分析提示词（可选）</label>
+            <textarea id="custom_prompt" name="custom_prompt" rows="3" placeholder="例如：请重点分析会议中关于技术架构的讨论，列出各方案的优缺点对比..."></textarea>
         </div>
         <button type="submit" class="btn btn-secondary">重新分析</button>
     </form>
@@ -104,11 +104,22 @@
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script>
 (function() {
     const el = document.getElementById('analysis');
     if (!el || typeof marked === 'undefined') return;
-    el.innerHTML = marked.parse(el.textContent);
+
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+    });
+
+    var raw = marked.parse(el.textContent);
+    if (typeof DOMPurify !== 'undefined') {
+        raw = DOMPurify.sanitize(raw);
+    }
+    el.innerHTML = raw;
 })();
 </script>
 {% endblock %}
