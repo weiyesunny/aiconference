@@ -1,8 +1,8 @@
 """Embedding generation and similarity search using DashScope text-embedding API."""
 
 import logging
-import json
 import struct
+import threading
 from typing import Optional
 
 import numpy as np
@@ -109,3 +109,31 @@ def search_similar(query_text: str, exclude_id: Optional[int] = None) -> list[di
             len(top), top[0]["score"],
         )
     return top
+
+
+def backfill_embeddings() -> None:
+    """Generate embeddings for all completed meetings that lack one.
+
+    Runs in a background thread so it doesn't block app startup.
+    """
+    def _run():
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT id, analysis FROM meetings "
+            "WHERE status = 'completed' AND analysis IS NOT NULL AND embedding IS NULL"
+        ).fetchall()
+        conn.close()
+
+        if not rows:
+            logger.info("Embedding backfill: no meetings need backfilling")
+            return
+
+        logger.info("Embedding backfill: %d meetings to process", len(rows))
+        done = 0
+        for row in rows:
+            store_embedding(row["id"], row["analysis"])
+            done += 1
+        logger.info("Embedding backfill complete: %d/%d succeeded", done, len(rows))
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()

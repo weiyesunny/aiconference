@@ -22,6 +22,8 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized. LLM model: %s", QWEN_MODEL)
     if FEISHU_WEBHOOK_URL:
         logger.info("Feishu webhook push enabled")
+    from app.services.embedding import backfill_embeddings
+    backfill_embeddings()
     yield
 
 
